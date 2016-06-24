@@ -1,0 +1,1789 @@
+// William Dreese 2014
+// IDE: Code::Blocks 13.12
+
+/*
+
+shit to do
+
+items
+- sell to traders for money
+- traders sell special items
+
+fight sim
+- Crit hits
+
+cities
+- special city parts
+  - bank
+  - zoo
+  - forge
+  - like a super fight arena type shit
+
+home screen
+- load game
+- save game
+- new game
+
+quests/NPCs
+- unlock plates
+- involve fighting and crafting things
+
+-- Developer Notes
+
+X: up and down
+Y: side to side
+
+items
+- bronze slab + bronze bar/ roll
+- iron slab + iron bar/ roll
+- gold slab + gold bar/ roll
+
+*/
+
+#include<iostream>
+#include<windows.h>
+#include<conio.h>
+#include<stdlib.h>
+#include<stdio.h>
+#include<ctime>
+#include<cmath>
+#include<string>
+#include<sstream>
+#include<vector>
+
+using namespace std;
+
+vector<string> skillN(0);
+string skillsXP[3];
+
+COORD coord = {0,0};
+
+template <class type>
+void gotoxy(int x, int y, type c){
+
+    coord.X = x;
+    coord.Y = y;
+    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+    cout << c;
+
+}
+
+class ITEM{
+public:
+    string name;
+    string itemType;
+    int itemLevel;
+    int itemPrice;
+    int itemBoost;
+
+    string itemMarketLine(){
+        stringstream ret;
+        ret << itemPrice;
+        ret << "G, Lvl ";
+        ret << itemLevel;
+        ret << " Req,+";
+        ret << itemBoost;
+        return ret.str();
+    }
+};
+
+class WEP: public ITEM{
+public:
+    int minHit, critHit, plats;
+
+    WEP(string n, int iL, int iP, int iB){
+        minHit = 0;
+        critHit = 50;
+        itemType = "wep";
+        name = n;
+        itemBoost = iB;
+        itemLevel = iL;
+        itemPrice = iP;
+        plats = 0;
+    }
+
+    bool addPlate(string typ, int b){
+        if (plats == 3) return false;
+        if (typ == "Min Hit"){
+            minHit += b;
+            plats++;
+        }
+        else {
+            critHit += b;
+            plats++;
+        }
+        return true;
+    }
+
+};
+
+class ARM: public ITEM{
+public:
+    bool equip;
+
+    ARM(string n, int iL, int iP, int iB){
+        itemType = "arm";
+        name = n;
+        itemBoost = iB;
+        itemLevel = iL;
+        itemPrice = iP;
+        equip = false;
+    }
+
+};
+
+class PLATES: public ITEM{
+public:
+    PLATES(string typ, int b){
+        itemType = typ;
+        itemBoost = b;
+        itemLevel = 0;
+        itemPrice = 0;
+    }
+};
+
+class Scenes{
+
+public:
+
+    char blurt[7][16] = {"---------------",
+                         "|             |",
+                         "|             |",
+                         "|             |",
+                         "|             |",
+                         "|             |",
+                         "---------------"};
+
+    char header[5][30] = {"---------------------------",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |"};
+
+    char townSquare[20][30] = {"---------------------------",
+                     "|         |     |         |",
+                     "|___       \\_ _/       ___|",
+                     "| M |                 |   |",
+                     "| A |                 | S |",
+                     "| R |                 | T |",
+                     "| K |                 | A |",
+                     "| E |                 | T |",
+                     "| T  \\               /    |",
+                     "|                       C |",
+                     "| P  /               \\  E |",
+                     "| L |                 | N |",
+                     "| A |                 | T |",
+                     "| C |                 | E |",
+                     "| E |                 | R |",
+                     "|___|                 |___|",
+                     "|   _______/   \\_______   |",
+                     "|  /                   \\  |",
+                     "| /     Fight Arena     \\ |",
+                     "---------------------------"};
+
+    char marketPlace[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *    Market Place   *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "| |---------------------| |",
+                     "| | Weapons  |  Armour  | |",
+                     "| |          |          | |",
+                     "| |          |          | |",
+                     "| |          |          | |",
+                     "| |----- ---------- ----| |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|___________   ___________|",
+                     "|           \\ /           |",
+                     "|     To Town Square      |",
+                     "---------------------------"};
+
+    char fightArena[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *    Fight Arena    *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "| |---------------------| |",
+                     "| |  Train   |  Battle  | |",
+                     "| |   (XP)   |  (Gold)  | |",
+                     "| |          |          | |",
+                     "| |          |          | |",
+                     "| |----- ---------- ----| |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|___________   ___________|",
+                     "|           \\ /           |",
+                     "|     To Town Square      |",
+                     "---------------------------"};
+
+    char statCenter[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *    Stat Center    *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "| |---------------------| |",
+                     "| |   Shop   |   Train  | |",
+                     "| |          |          | |",
+                     "| |          |          | |",
+                     "| |          |          | |",
+                     "| |-----X---------- ----| |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|___________   ___________|",
+                     "|           \\ /           |",
+                     "|     To Town Square      |",
+                     "---------------------------"};
+
+    char weaponsPlace[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *  Weapons Market   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  * Use w and s to go *  |",
+                     "|  *  up and down and  *  |",
+                     "|  *press z to buy/sell*  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+    char armourPlace[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *   Armour Market   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  * Use w and s to go *  |",
+                     "|  *  up and down and  *  |",
+                     "|  *press z to buy/sell*  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+    char forest[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "---------------------------"};
+
+    char bagScreen[20][30] = {"---------------------------",
+                     "|          Pack           |",
+                     "| Weapons                 |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "| Armour                  |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "| Plates                  |",
+                     "|                         |",
+                     "|                         |",
+                     "|                         |",
+                     "| w/s and z to select an  |",
+                     "|item to equip/add plates |",
+                     "|  Top item is equipped   |",
+                     "---------------------------"};
+
+    char goldArena[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *     Gold Arena    *  |",
+                     "|  *                   *  |",
+                     "|  *     Bat Cbl: 1    *  |",
+                     "|  *   Gold Award x1   *  |",
+                     "|  *    Wolf Cbl: 2    *  |",
+                     "|  *   Gold Award x2   *  |",
+                     "|  *    Demon Cbl: 3   *  |",
+                     "|  *   Gold Award x3   *  |",
+                     "|  *                   *  |",
+                     "|  * 15 Gold per Fight *  |",
+                     "|  *                   *  |",
+                     "|  * Use w and s to go *  |",
+                     "|  *  up and down and  *  |",
+                     "|  *press z to select. *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+    char xpArena[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *      XP Arena     *  |",
+                     "|  *                   *  |",
+                     "|  *      Attack       *  |",
+                     "|  *                   *  |",
+                     "|  *      Defense      *  |",
+                     "|  *                   *  |",
+                     "|  *     Hitpoints     *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  * 15 Gold per Fight *  |",
+                     "|  *                   *  |",
+                     "|  * Use w and s to go *  |",
+                     "|  *  up and down and  *  |",
+                     "|  *press z to select. *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+    char trainingCenter[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  * Training Center   *  |",
+                     "|  *                   *  |",
+                     "|  *     Crafting      *  |",
+                     "|  *                   *  |",
+                     "|  *      Zoology      *  |",
+                     "|  *                   *  |",
+                     "|  *     Exploring     *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  * Use w and s to go *  |",
+                     "|  *  up and down and  *  |",
+                     "|  * press z to train  *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+    char statScreen[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *       Stats       *  |",
+                     "|  *********************  |",
+                     "|  * Attack    Lvl-    *  |",
+                     "|  * XP-      XPL-     *  |",
+                     "|  * Defense   Lvl-    *  |",
+                     "|  * XP-      XPL-     *  |",
+                     "|  * Hitpoints Lvl-    *  |",
+                     "|  * XP-      XPL-     *  |",
+                     "|  * Crafting  Lvl-    *  |",
+                     "|  * XP-      XPL-     *  |",
+                     "|  * Zoology   Lvl-    *  |",
+                     "|  * XP-      XPL-     *  |",
+                     "|  * Exploring Lvl-    *  |",
+                     "|  * XP-      XPL-     *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+
+};
+
+class Bag{
+public:
+    Scenes sc;
+    int cbl, gold;
+
+    void displayM(int p){
+        system("cls");
+        for(int x = 0; x < 5; x++) for(int y = 0; y < 30; y++) gotoxy(y,x, sc.header[x][y]);
+        gotoxy(3,1,"        Pack");
+        stringstream info;
+        info << "Gold: " << gold<< "   Cbl: " << cbl;
+        string infoFinal = info.str();
+        gotoxy(4,2,infoFinal);
+        gotoxy(0,3,"Use wasd to move, x to exit");
+        gotoxy(0,4,"| q for stats, e for pack |");
+        for(int x = 0; x < 20; x++) for(int y = 0; y < 30; y++) gotoxy(y,x+5, sc.bagScreen[x][y]);
+        if (p ==0) gotoxy(22, 6, "d ->");
+        else gotoxy(1,6, "<- a");
+    }
+
+    ITEM menu(int cbbl, int ggold){
+        cbl = cbbl;
+        gold = ggold;
+        bool go = true;
+        int swag = 0;
+        int change = 0;
+        int a = 0;
+        while(go){
+            change = swag;
+            char c;
+            displayM(swag);
+            if (weaponsOwned.size() == 0 && armourOwned.size() == 0 && swag == 0){
+                for (int x = 0; x < platesOwned.size(); x++) gotoxy(2,18+x,platesOwned[x].itemType);
+                c = getch();
+                if (c == 'x') go = false;
+                else if (c == 'd') swag++;
+            }
+            else if (swag == 1 && miscItems.size() == 0){
+                gotoxy(1,7," Items          ");
+                gotoxy(1,12,"               ");
+                gotoxy(1,17,"                 ");
+                gotoxy(1,23,"         use once.      ");
+                gotoxy(1,22,"  item to craft with or ");
+                c = getch();
+                if (c == 'x') go = false;
+                else if (c == 'a') swag--;
+            }
+            else if (swag == 1){
+                gotoxy(1,7," Items          ");
+                gotoxy(1,12,"               ");
+                gotoxy(1,17,"                 ");
+                gotoxy(1,23,"         use once.      ");
+                gotoxy(1,22,"  item to craft with or ");
+                for (int x = 0; x < miscItems.size(); x++) gotoxy(2,8+x,miscItems[x].name);
+                gotoxy(1,8+a,'>');
+                c = getch();
+                if (c == 'w' && a != 0) a--;
+                else if (c == 's' && a != miscItems.size()-1) a++;
+                else if (c == 'a') swag--;
+                else if (c == 'z'){
+                    bool con = true;
+                    int ch = 0;
+                    while (con){
+                        displayM(swag);
+                        gotoxy(1,7," Items          ");
+                        gotoxy(1,12,"               ");
+                        gotoxy(1,17,"                 ");
+                        gotoxy(1,23,"         use once.      ");
+                        gotoxy(1,22,"  item to craft with or ");
+                        for (int x = 0; x < miscItems.size(); x++) gotoxy(2,8+x,miscItems[x].name);
+                        gotoxy(1,8+a,'>');
+                        for (int x = 0; x < 7; x++)for (int y = 0; y < 16; y++)gotoxy(y+5, x+10, sc.blurt[x][y]);
+                        gotoxy(6,11,"    Options");
+                        gotoxy(7,13," Craft");
+                        gotoxy(7,14," Drop");
+                        gotoxy(7,15," Use");
+                        gotoxy(6,13+ch, '>');
+                        char sw = getch();
+                        if (sw == 'w' && ch != 0) ch--;
+                        else if (sw == 's' && ch != 2) ch++;
+                        else if (sw == 'x') con = false;
+                        else if (sw == 'z'){
+                            if (ch == 2) return miscItems[a];
+                            else if (ch == 0){
+                                int pl = 0;
+                                bool swa = true;
+                                while (swa){
+                                    displayM(2);
+                                    gotoxy(1,7," Items          ");
+                                    gotoxy(1,12,"               ");
+                                    gotoxy(1,17,"                 ");
+                                    gotoxy(1,23,"                        ");
+                                    gotoxy(1,22,"  item to craft with.   ");
+                                    for (int x = 0; x < miscItems.size(); x++) gotoxy(2,8+x,miscItems[x].name);
+                                    gotoxy(1,8+pl,'>');
+                                    char zz = getch();
+                                    if (zz == 'w' && pl != 0) pl--;
+                                    else if (zz == 's' && pl != miscItems.size()-1) pl++;
+                                    else if (zz == 'x') swa = false;
+                                    else if (zz == 'z'){
+                                        if (miscItems[a].name == "Bronze Slab"){
+                                            if (miscItems[pl].name == "Bronze Bar"){
+                                                PLATES p("Min Hit",1);
+                                                if (addPlate(p)){
+                                                    miscItems.erase(miscItems.begin()+a);
+                                                    if (pl>a)pl--;
+                                                    miscItems.erase(miscItems.begin()+pl);
+                                                    swa = false;
+                                                    con = false;
+                                                }
+                                            }
+                                            else if (miscItems[pl].name == "Bronze Roll"){
+                                                PLATES p("Crit Hit",3);
+                                                if (addPlate(p)){
+                                                    miscItems.erase(miscItems.begin()+a);
+                                                    if (pl>a)pl--;
+                                                    miscItems.erase(miscItems.begin()+pl);
+                                                    swa = false;
+                                                    con = false;
+                                                }
+                                            }
+                                        }
+                                        else if (miscItems[a].name == "Iron Slab"){
+                                            if (miscItems[pl].name == "Iron Bar"){
+                                                PLATES p("Min Hit",3);
+                                                if (addPlate(p)){
+                                                    miscItems.erase(miscItems.begin()+a);
+                                                    if (pl>a)pl--;
+                                                    miscItems.erase(miscItems.begin()+pl);
+                                                    swa = false;
+                                                    con = false;
+                                                }
+                                            }
+                                            else if (miscItems[pl].name == "Iron Roll"){
+                                                PLATES p("Crit Hit",6);
+                                                if (addPlate(p)){
+                                                    miscItems.erase(miscItems.begin()+a);
+                                                    if (pl>a)pl--;
+                                                    miscItems.erase(miscItems.begin()+pl);
+                                                    swa = false;
+                                                    con = false;
+                                                }
+                                            }
+                                        }
+                                        else if (miscItems[a].name == "Gold Slab"){
+                                            if (miscItems[pl].name == "Gold Bar"){
+                                                PLATES p("Min Hit",7);
+                                                if (addPlate(p)){
+                                                    miscItems.erase(miscItems.begin()+a);
+                                                    if (pl>a)pl--;
+                                                    miscItems.erase(miscItems.begin()+pl);
+                                                    swa = false;
+                                                    con = false;
+                                                }
+                                            }
+                                            else if (miscItems[pl].name == "Gold Roll"){
+                                                PLATES p("Crit Hit",9);
+                                                if (addPlate(p)){
+                                                    miscItems.erase(miscItems.begin()+a);
+                                                    if (pl>a)pl--;
+                                                    miscItems.erase(miscItems.begin()+pl);
+                                                    swa = false;
+                                                    con = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            else {
+                                miscItems.erase(miscItems.begin()+a);
+                                con = false;
+                                change = 100;
+                            }
+                        }
+                    }
+                }
+            }
+            else if (swag == 0) {
+                for (int x = 0; x < weaponsOwned.size(); x++) gotoxy(2,8+x,weaponsOwned[x].name);
+                for (int x = 0; x < armourOwned.size(); x++) gotoxy(2,13+x,armourOwned[x].name);
+                for (int x = 0; x < platesOwned.size(); x++) gotoxy(2,18+x,platesOwned[x].itemType);
+                int lob = weaponsOwned.size() + armourOwned.size();
+                int pos = a;
+                if (a+1 > weaponsOwned.size()) pos += 5-weaponsOwned.size();
+                gotoxy(1,8+pos,'>');
+                c = getch();
+                if (c == 'w' && a != 0) a--;
+                else if (c == 's' && a != lob-1) a++;
+                else if (c == 'd') swag++;
+                else if (c == 'z'){
+                    bool con = true;
+                    int ch = 0;
+                    while (con){
+                        displayM(swag);
+                        for (int x = 0; x < 7; x++)for (int y = 0; y < 16; y++)gotoxy(y+5, x+10, sc.blurt[x][y]);
+                        gotoxy(6,11,"    Options");
+                        gotoxy(7,13,"   Equip");
+                        gotoxy(7,14," Item Stats");
+                        gotoxy(7,15," Add Plate");
+                        gotoxy(6,13+ch, '>');
+                        char sw = getch();
+                        if (sw == 'w' && ch != 0) ch--;
+                        else if (sw == 's' && ch != 2) ch++;
+                        else if (sw == 'x') con = false;
+                        else if (sw == 'z'){
+                            if (ch == 1){
+                                displayM(swag);
+                                for (int x = 0; x < 7; x++)for (int y = 0; y < 16; y++)gotoxy(y+5, x+10, sc.blurt[x][y]);
+                                if (a+1 > weaponsOwned.size()){
+                                    gotoxy(6,11,armourOwned[a-weaponsOwned.size()].name);
+                                    gotoxy(7,13," Boost: ");
+                                    gotoxy(15,13, armourOwned[a-weaponsOwned.size()].itemBoost);
+                                    getch();
+                                }
+                                else {
+                                    gotoxy(6,11,weaponsOwned[a].name);
+                                    gotoxy(7,13,"Boost: ");
+                                    gotoxy(15,13, weaponsOwned[a].itemBoost);
+                                    gotoxy(7,14,"Min Hit: ");
+                                    gotoxy(16,14, weaponsOwned[a].minHit);
+                                    stringstream ss;
+                                    ss << "Crit Hit: " << weaponsOwned[a].critHit << '%';
+                                    string sss = ss.str();
+                                    gotoxy(7,15,sss);
+                                    getch();
+                                }
+                            }
+                            else if (ch == 0){
+                                if (a+1 > weaponsOwned.size()){
+                                    int swag = a-weaponsOwned.size();
+                                    ARM a = armourOwned[swag];
+                                    armourOwned.erase(armourOwned.begin()+swag);
+                                    armourOwned.insert(armourOwned.begin(),a);
+                                }
+                                else {
+                                    WEP w = weaponsOwned[a];
+                                    weaponsOwned.erase(weaponsOwned.begin()+a);
+                                    weaponsOwned.insert(weaponsOwned.begin(),w);
+                                }
+                            }
+                            else {
+                                if (platesOwned.size() != 0){
+                                    bool cont = true;
+                                    int cht = 0;
+                                    while (cont){
+                                        displayM(swag);
+                                        for (int x = 0; x < 7; x++)for (int y = 0; y < 16; y++)gotoxy(y+5, x+10, sc.blurt[x][y]);
+                                        gotoxy(6,11,"    Plates");
+                                        for (int x = 0; x < platesOwned.size(); x++) gotoxy(7,13+x,platesOwned[x].itemType);
+                                        for (int x = 0; x < platesOwned.size(); x++) gotoxy(15,13+x,platesOwned[x].itemBoost);
+                                        gotoxy(6,13+cht, '>');
+                                        char swt = getch();
+                                        if (swt == 'w' && cht != 0) cht--;
+                                        else if (swt == 's' && cht != 1) cht++;
+                                        else if (swt == 'x') cont = false;
+                                        else if (swt == 'z'){
+                                            if (weaponsOwned[a].addPlate(platesOwned[cht].itemType, platesOwned[cht].itemBoost)) platesOwned.erase(platesOwned.begin()+cht);
+                                            else cont = false;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (c == 'x') go = false;
+            }
+            if (change != swag) a = 0;
+        }
+        ITEM i;
+        return i;
+    }
+
+    int getWep(char c){
+        if (weaponsOwned.size() == 0) return 0;
+        else {
+            if (c == 'b') return weaponsOwned[0].itemBoost;
+            else if (c == 'm') return weaponsOwned[0].minHit;
+            else if (c == 'c') return weaponsOwned[0].critHit;
+        }
+    }
+    int getArm(char c){
+        if (armourOwned.size() == 0) return 0;
+        else {
+            if (c == 'b') return armourOwned[0].itemBoost;
+        }
+    }
+    bool addWeapon(WEP w){
+        if (weaponsOwned.size() == 4) return false;
+        weaponsOwned.push_back(w);
+        return true;
+    }
+    bool addArmour(ARM a){
+        if (armourOwned.size() == 4) return false;
+        armourOwned.push_back(a);
+        return true;
+    }
+    bool addPlate(PLATES p){
+        if (platesOwned.size() == 2) return false;
+        platesOwned.push_back(p);
+        return true;
+    }
+    bool addItem(ITEM i){
+        if (miscItems.size() == 12) return false;
+        miscItems.push_back(i);
+        return true;
+    }
+private:
+    vector<WEP> weaponsOwned;
+    vector<ARM> armourOwned;
+    vector<PLATES> platesOwned;
+    vector<ITEM> miscItems;
+};
+
+class Enemy{
+
+public:
+
+    char icon;
+    string name;
+    int x,y,XP,YP,combatlvl,n;
+    ITEM drop;
+
+    Enemy(int xx,int yy, int xP, int yP){
+        drop.name = " ";
+        x = xx;
+        y = yy;
+        XP = xP;
+        YP = yP;
+        double swag = sqrt(((xP-1) * (xP-1)) + ((yP-1) * (yP-1)));
+        combatlvl = (int)swag;
+        if (combatlvl == 0) combatlvl++;
+        combatlvl += rand() % 2;
+        n = rand() % 3;
+        if (combatlvl < 4){
+            if (n == 0) name = "sheep";
+            else if (n == 1) name = "cow";
+            else name = "pig";
+        }
+        else if (combatlvl < 7){
+            if (n == 0) name = "goblin";
+            else if (n == 1) name = "bear";
+            else name = "liger";
+        }
+        else {
+            if (n == 0) name = "demon";
+            else if (n == 1) name = "reaper";
+            else name = "spectre";
+        }
+        icon = name[0];
+        if (name == "spectre") icon = 'Y';
+        int rew = rand() % 100;
+        if (rew < 10){
+            if (combatlvl < 4) drop.name = "Bronze Slab";
+            else if (combatlvl < 7) drop.name = "Iron Slab";
+            else drop.name = "Gold Slab";
+        }
+        else if (rew < 17){
+            if (combatlvl < 4) drop.name = "Bronze Bar";
+            else if (combatlvl < 7) drop.name = "Iron Bar";
+            else drop.name = "Gold Bar";
+        }
+        else if (rew < 24){
+            if (combatlvl < 4) drop.name = "Bronze Roll";
+            else if (combatlvl < 7) drop.name = "Iron Roll";
+            else drop.name = "Gold Roll";
+        }
+        drop.itemType = "Misc Item";
+    }
+
+};
+
+class Stat{
+
+public:
+
+    Scenes sc;
+
+    Stat(){
+        for (int x = 0; x < 6; x++){
+            stats[x][0] = 1;
+            stats[x][1] = 0;
+        }
+    }
+
+    void displayStats(int g, int c){
+
+        system("cls");
+        Scenes sc;
+
+        for(int x = 0; x < 5; x++) for(int y = 0; y < 30; y++) gotoxy(y,x, sc.header[x][y]);
+        gotoxy(3,1,"     Stats");
+        stringstream info;
+        info << "Gold: " << g<< "   Cbl: " << c;
+        string infoFinal = info.str();
+        gotoxy(4,2,infoFinal);
+        gotoxy(0,3,"Use wasd to move, x to exit");
+        gotoxy(0,4,"| q for stats, e for pack |");
+        for(int x = 0; x < 20; x++) for(int y = 0; y < 30; y++) gotoxy(y,x+5, sc.statScreen[x][y]);
+
+        for(int x = 0; x < 6; x++){
+            gotoxy(20,10+(2*x),stats[x][0]);
+            gotoxy(10,11+(2*x),stats[x][1]);
+            int xpleft = 40;
+            xpleft =(int)(xpleft * pow(2.5,stats[x][0]-1));
+            xpleft -= stats[x][1];
+            gotoxy(19,11+(2*x), xpleft);
+        }
+
+        char a;
+        gotoxy(100,100,' ');
+        a = getch() ;
+
+    }
+
+    void checkLevelUp(int sk){
+
+        int needed = (int)(40 * pow(2.5,stats[sk][0]-1));
+
+        if (stats[sk][1] >= needed){
+            stats[sk][0]++;
+            gotoxy(6,17, "***************");
+            gotoxy(6,18, "* " + skillN[sk]);
+            gotoxy(20,18, '*');
+            gotoxy(6,19, "*is now lvl   *");
+            gotoxy(18,19,stats[sk][0]);
+            gotoxy(6,20, "***************");
+            gotoxy(100,100,' ');
+            int a = getch();
+        }
+
+    }
+
+    int stats[6][2];
+
+};
+
+class FightSimulator{
+
+public:
+
+    FightSimulator(Stat s, int sk, int d, Bag b, bool wild){
+
+        turns = 0;
+
+        skill = sk;
+        diff = d;
+
+        UA = (5 * s.stats[0][0]) + b.getWep('b');
+        UD = (5 * s.stats[1][0]) + b.getArm('b');
+        UH = 10 * s.stats[2][0];
+
+        minHit = b.getWep('m');
+        critHit = b.getWep('c');
+
+        EA = 4 * diff;
+        ED = 4 * diff;
+        EH = 8 * diff;
+
+        rew = s.stats[sk][0] * 15 * diff;
+
+        if (!wild){
+            if (skill == 3) reward = rand() % (15 * diff) + 10;
+            else reward = rand() % rew + 10;
+        }
+        else reward = 15*diff;
+
+    }
+
+    int battle(){
+
+        int Ehit = rand() % EA;
+        Ehit -= rand() % UD;
+
+        if (Ehit <= 0) Ehit = 0;
+        if ((UH - Ehit) <= 0){
+            Ehit = UH;
+            displayBattle(0,Ehit, turns,false);
+            return 0;
+        }
+
+        displayBattle(0,Ehit,turns,false);
+
+        Sleep(1000);
+
+        turns++;
+
+        int Uhit = (rand() % UA) - (rand() % ED);
+
+        bool cr = false;
+        int crit = rand() & 100+1;
+        if (critHit >= crit){
+            Uhit = (UA * 3) - ED;
+            cr = true;
+        }
+
+        if (Uhit < minHit) Uhit = minHit;
+        if ((EH - Uhit) <= 0){
+            Uhit = EH;
+            displayBattle(1,Uhit, turns,cr);
+            return reward;
+        }
+
+        displayBattle(1,Uhit, turns,cr);
+
+        Sleep(1000);
+
+        turns++;
+
+        battle();
+
+    }
+
+    void displayBattle(int turn, int hit, int &ts, bool crit){
+
+        if (ts % 6 == 0){
+
+            system("cls");
+            Scenes sc;
+
+            for(int x= 0; x < 5; x++) for(int y = 0; y < 30; y++) gotoxy(y,x, sc.header[x][y]);
+            gotoxy(3,1,"     Battle View");
+            gotoxy(0,3,"Use wasd to move, x to exit");
+            gotoxy(0,4,"| q for stats, e for pack |");
+            for(int x =0; x < 20; x++) for(int y = 0; y < 30; y++) gotoxy(y,x+5, fightScreenss[x][y]);
+
+            ts=0;
+
+        }
+
+        if (turn == 0){
+            if (hit-UH == 0){
+                gotoxy(3,10+(2*ts),"*Foe has killed you ");
+                gotoxy(3,11+(2*ts),"*   Train harder!  ");
+                Sleep(4000);
+            }
+            else{
+                UH -= hit;
+                gotoxy(0,10+(2*ts),"|  *Foe deal    damage!*  |");
+                gotoxy(0,11+(2*ts),"|  *You have    HP left*  |");
+                gotoxy(13,10+(2*ts), hit);
+                gotoxy(13,11+(2*ts), UH);
+            }
+        }
+
+        else {
+            if (hit-EH == 0){
+                if (!crit) gotoxy(6,10+(2*ts),"     You Won!");
+                else gotoxy(5,10+(2*ts),"Crit Hit! You Won!");
+                gotoxy(9,11+(2*ts),"+");
+                gotoxy(10,11+(2*ts),reward);
+                if (skill == 3) gotoxy(13,11+(2*ts), "Gold");
+                else gotoxy(13,11+(2*ts), skillsXP[skill]);
+                Sleep(4000);
+            }
+            else{
+                EH -= hit;
+                if (!crit) gotoxy(0,10+(2*ts),"|  *You deal    damage!*  |");
+                else gotoxy(0,10+(2*ts),"|  *Crit Hit!    damage*  |");
+                gotoxy(0,11+(2*ts),"|  *Foe have    HP left*  |");
+                gotoxy(13+((int)crit),10+(2*ts), hit);
+                gotoxy(13,11+(2*ts), EH);
+            }
+        }
+
+        gotoxy(6,2,"                   ");
+        stringstream info;
+        info << "HP: " << UH << "  Foe HP: " <<EH;
+        string infoFinal = info.str();
+        gotoxy(6,2,infoFinal);
+
+    }
+
+    int UA, UD, UH, EA, ED, EH, skill, diff, reward, turns, rew, minHit, critHit, w;
+
+private:
+
+    char fightScreenss[20][30] = {"---------------------------",
+                     "|                         |",
+                     "|  *********************  |",
+                     "|  *     Live Fight    *  |",
+                     "|  *********************  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *                   *  |",
+                     "|  *********************  |",
+                     "|                         |",
+                     "---------------------------"};
+
+};
+
+class FOREST{
+
+public:
+
+    int xPOS, yPOS;
+
+    Scenes sc;
+
+    FOREST(int x, int y){
+        xPOS = x;
+        yPOS = y;
+        int aoe = rand() % 10 + 5;
+        for (int a = 0; a < aoe; a++){
+            int xx = rand() %15 + 1;
+            int yy = rand() %25 + 1;
+            Enemy s(xx,yy,xPOS,yPOS);
+            if (!(xx == 6 && yy == 13) || !(xx == 5 && yy == 13) || !(xx == 7 && yy == 13) || !(xx == 6 && yy == 12) || !(xx == 6 && yy == 14)) e.push_back(s);
+        }
+    }
+
+    void display(int xx,int yy, bool show,int gold,int cbl){
+        for(int x= 0; x < 5; x++) for(int y = 0; y < 30; y++) gotoxy(y,x, sc.header[x][y]);
+        gotoxy(3,1,"Forest X:    Y: ");
+        gotoxy(13,1,xPOS+1);
+        gotoxy(18,1,yPOS+1);
+        stringstream info;
+        info << "Gold: " << gold<< "   Cbl: " << cbl;
+        string infoFinal = info.str();
+        gotoxy(4,2,infoFinal);
+        gotoxy(0,3,"Use wasd to move, x to exit");
+        gotoxy(0,4,"| q for stats, e for pack |");
+        for(int x =0; x < 20; x++) for(int y = 0; y < 30; y++) gotoxy(y,x+5, sc.forest[x][y]);
+        if (show) gotoxy(yy,xx+5,char(2));
+        for (int en = 0; en < e.size(); en++) gotoxy(e[en].y, e[en].x+5,e[en].icon);
+    }
+
+    void zones(int &x, int &y, int &XP, int &YP){
+        if (x == 0){
+            if (XP != 0){
+                x = 6;
+                y = 13;
+                XP--;
+            }
+            else x++;
+        }
+        else if (x == 19){
+            if (XP != 9){
+                x = 6;
+                y = 13;
+                XP++;
+            }
+            else x--;
+        }
+        if (y == 0){
+            if (YP != 0){
+                x = 6;
+                y = 13;
+                YP--;
+            }
+            else y++;
+        }
+        else if (y == 26){
+            if (YP != 9){
+                x = 6;
+                y = 13;
+                YP++;
+            }
+            else y--;
+        }
+    }
+
+    bool checkEnemies(int xx, int yy, Stat &t, Bag &b,int g,int cb){
+        for (int a = 0; a < e.size(); a++){
+            if ((e[a].x - 1 == xx && e[a].y == yy)|| (e[a].y - 1 == yy && e[a].x== xx)|| (e[a].x + 1 == xx && e[a].y == yy)|| (e[a].y + 1 == yy && e[a].x == xx)){
+                int sk;
+                bool c = blurtEnemy(e[a], sk, xx, yy,g,cb);
+                if (c){
+                    FightSimulator f(t,sk,e[a].combatlvl,b,true);
+                    int rew = f.battle();
+                    if (rew != 0){
+                        if (e[a].drop.name != " ") bool boooooool = b.addItem(e[a].drop);
+                        e.erase(e.begin() + a);
+                        t.stats[sk][1] += rew;
+                        display(14,13,false,g,cb);
+                        t.checkLevelUp(sk);
+                        system("cls");
+                    }
+
+                }
+                return true;
+            }
+        }
+        return true;
+    }
+
+    bool blurtEnemy(Enemy e, int &sk, int xxx, int yyy,int g, int cb){
+        bool a = true;
+        int s = 0;
+        while(a){
+            system("cls");
+            display(xxx,yyy,true,g,cb);
+            for (int x = 0; x < 7; x++)for (int y = 0; y < 16; y++)gotoxy(y+5, x+10, sc.blurt[x][y]);
+            gotoxy(6,11,"Lvl    "+e.name);
+            gotoxy(10,11,e.combatlvl);
+            gotoxy(7,13," Fight");
+            gotoxy(7,14,"  Run");
+            gotoxy(6,13+s, '>');
+            char m = getch();
+            if (m == 'w') s = 0;
+            else if (m == 's') s = 1;
+            else if (m == 'z'){
+                if (s == 1) return false;
+                else {
+                    bool b = true;
+                    while(b){
+                        system("cls");
+                        display(xxx,yyy,true,g,cb);
+                        for (int x = 0; x < 7; x++)for (int y = 0; y < 16; y++)gotoxy(y+5, x+10, sc.blurt[x][y]);
+                        gotoxy(6,11,"   Train?");
+                        gotoxy(7,13," Attack");
+                        gotoxy(7,14," Defense");
+                        gotoxy(7,15," Hitpoints");
+                        gotoxy(6,13+s, '>');
+                        char m = getch();
+                        if (m == 'w' && s != 0) s--;
+                        else if (m == 's' && s != 2) s++;
+                        else if (m == 'z'){
+                            sk = s;
+                            return true;
+                        }
+                        else if (m == 'x') return false;
+                    }
+                }
+            }
+        }
+    }
+
+private:
+    vector<Enemy> e;
+};
+
+class CITY{
+public:
+    string name, position;
+
+    int posX, posY;
+
+    Scenes sc;
+
+    CITY(string n, int x, int y, int lev){
+        name = n;
+        posX = x;
+        posY = y;
+        position = "Town Square";
+        setRegion(sc.townSquare);
+
+        WEP w1("Bronze Dagger", 2, 40, 1);
+        WEP w2("Bronze Sword", 3, 100, 2);
+        WEP w3("Iron Dagger",4,180,3);
+        WEP w4("Iron Sword",5,300,5);
+
+        weps.push_back(w1);
+        weps.push_back(w2);
+        weps.push_back(w3);
+        weps.push_back(w4);
+
+        ARM a1("Bronze Chain",2,80,1);
+        ARM a2("Bronze Plate",3,200,3);
+        ARM a3("Iron Chain",4,360,4);
+        ARM a4("Iron Plate",5,600,6);
+
+        arms.push_back(a1);
+        arms.push_back(a2);
+        arms.push_back(a3);
+        arms.push_back(a4);
+    }
+
+    void display(int xx,int yy, bool show,int gold, int cbl){
+        for(int x= 0; x < 5; x++) for(int y = 0; y < 30; y++) gotoxy(y,x, sc.header[x][y]);
+        gotoxy(3,1,position+" ,"+name);
+        stringstream info;
+        info << "Gold: " << gold<< "   Cbl: " << cbl;
+        string infoFinal = info.str();
+        gotoxy(4,2,infoFinal);
+        gotoxy(0,3,"Use wasd to move, x to exit");
+        gotoxy(0,4,"| q for stats, e for pack |");
+        for(int x =0; x < 20; x++) for(int y = 0; y < 30; y++) gotoxy(y,x+5, region[x][y]);
+        if (show) gotoxy(yy,xx+5,char(2));
+    }
+
+    void zones(int &x, int &p, Stat &s, int &XP, int &YP, Bag &b,int &gol, int cbl){
+
+        if (position == "Town Square"){
+            if (x == 9 && p == 4){
+                setRegion(sc.marketPlace);
+                position = "Market Place";
+                x = 14;
+                p = 13;
+            }
+            else if (x == 9 && p == 22){
+                setRegion(sc.statCenter);
+                position = "Stat Center";
+                x = 14;
+                p = 13;
+            }
+            else if (p == 13 && x == 1){
+                if (XP != 0) XP--;
+                x = 6;
+                p = 13;
+            }
+            else if (x == 17 && (p == 12 || p == 13 ||p == 14)){
+                setRegion(sc.fightArena);
+                position = "Fight Arena";
+                x = 14;
+                p = 13;
+            }
+        }
+
+        else if (position == "Market Place"){
+            if (x == 17 && p == 13){
+                setRegion(sc.townSquare);
+                position = "Town Square";
+                x = 6;
+                p = 13;
+            }
+            if (x == 10 && p == 8){
+                market(s, "Weapons",b,gol,cbl);
+                setRegion(sc.marketPlace);
+                x = 14;
+                p = 13;
+            }
+            if (x == 10 && p == 19){
+                market(s, "Armour",b,gol,cbl);
+                setRegion(sc.marketPlace);
+                x = 14;
+                p = 13;
+            }
+        }
+
+        else if (position == "Stat Center"){
+            if (x == 17 && p == 13){
+                setRegion(sc.townSquare);
+                position = "Town Square";
+                x = 6;
+                p = 13;
+            }
+            else if (x == 10 && p == 19){
+                int yay = statCen(s,gol, cbl);
+                if (yay != 6){
+                    setRegion(sc.statCenter);
+                    display(14,13,false,gol,cbl);
+                    s.checkLevelUp(yay);
+                    system("cls");
+                }
+                setRegion(sc.statCenter);
+                position = "Stat Center";
+                x = 14;
+                p = 13;
+            }
+        }
+
+        else if (position == "Fight Arena"){
+            if (x == 10 && p == 8){
+                int yay = fight(s, "XP",b,gol,cbl);
+                if (yay != 6){
+                    setRegion(sc.fightArena);
+                    display(14,13,false,gol,cbl);
+                    s.checkLevelUp(yay);
+                    system("cls");
+                }
+                setRegion(sc.fightArena);
+                x = 14;
+                p = 13;
+            }
+            else if (x == 10 && p == 19){
+                int yay = fight(s, "Gold",b,gol,cbl);
+                setRegion(sc.fightArena);
+                x = 14;
+                p = 13;
+            }
+            else if (x == 17 && p == 13){
+                setRegion(sc.townSquare);
+                position = "Town Square";
+                x = 6;
+                p = 13;
+            }
+        }
+
+    }
+
+    void market(Stat s, string type,Bag &ba,int &gold,int cb){
+
+        if (type == "Weapons"){
+
+            setRegion(sc.weaponsPlace);
+
+            bought:
+
+            bool go = true;
+            int a = 0;
+            int starplus = weps.size();
+            while(go){
+
+                display(-1,-1, false,gold, cb);
+                for (int c =0; c< starplus; c++){
+                    gotoxy(7,10+(c*2),weps[c].name);
+                    gotoxy(5,11+(c*2),weps[c].itemMarketLine());
+                }
+                gotoxy(5, 10+(a*2), '*');
+                gotoxy(21, 10+(a*2), '*');
+                char b = getch();
+
+                if (b == 'x') go = false;
+                else if (b == 'w' && a != 0) a--;
+                else if (b == 's' && a != starplus-1) a++;
+                else if (b == 'z'){
+                    if (s.stats[0][0] >= weps[a].itemLevel && gold >= weps[a].itemPrice){
+                        if (ba.addWeapon(weps[a])){
+                            gold -= weps[a].itemPrice;
+                            weps.erase(weps.begin()+a);
+                        }
+
+                        goto bought;
+                    }
+                }
+                system("cls");
+
+            }
+
+        }
+
+        else {
+
+            setRegion(sc.armourPlace);
+
+            bool go = true;
+            int a = 0;
+            int starplus = arms.size();
+            while(go){
+
+                display(-1,-1, false,gold,cb);
+                for (int c =0; c< starplus; c++){
+                    gotoxy(7,10+(c*2),arms[c].name);
+                    gotoxy(5,11+(c*2),arms[c].itemMarketLine());
+                }
+                gotoxy(5, 10+(a*2), '*');
+                gotoxy(21, 10+(a*2), '*');
+                char b = getch();
+
+                if (b == 'x') go = false;
+                else if (b == 'w' && a != 0) a--;
+                else if (b == 's' && a != starplus-1) a++;
+                else if (b == 'z'){
+                    if (s.stats[1][0] >= arms[a].itemLevel && gold >= arms[a].itemPrice){
+                        if (ba.addArmour(arms[a])){
+                            gold -= arms[a].itemPrice;
+                            arms.erase(arms.begin()+a);
+                            market(s,type,ba,gold,cb);
+                        }
+                    }
+                }
+                system("cls");
+
+            }
+
+        }
+
+    }
+
+    int statCen(Stat &s, int &gold, int cb){
+
+        setRegion(sc.trainingCenter);
+
+        int ret = 6;
+
+        bool go = true;
+        int a = 0;
+        while(go){
+
+            display(-1,-1, false,gold,cb);
+            gotoxy(6,11,"Gold: ");
+            gotoxy(12,11,s.stats[3][0]*15);
+            gotoxy(15,11,"XP: ");
+            gotoxy(19,11,s.stats[3][1]);
+            gotoxy(6,13,"Gold: ");
+            gotoxy(12,13,s.stats[4][0]*15);
+            gotoxy(15,13,"XP: ");
+            gotoxy(19,13,s.stats[4][1]);
+            gotoxy(6,15,"Gold: ");
+            gotoxy(12,15,s.stats[5][0]*15);
+            gotoxy(15,15,"XP: ");
+            gotoxy(19,15,s.stats[5][1]);
+            gotoxy(5, 10+(a*2), '*');
+            gotoxy(21, 10+(a*2), '*');
+            char b = getch();
+
+            if (b == 'x') go = false;
+            else if (b == 'w' && a != 0) a--;
+            else if (b == 's' && a != 2) a++;
+            else if (b == 'z'){
+                if (s.stats[a+3][0]*15 <= gold){
+                    gold -= s.stats[a+3][0]*15;
+                    int rew = (rand() % (s.stats[a+3][0]*15)) + 10;
+                    s.stats[a+3][1] += rew;
+                    gotoxy(5, 17, "     +    XP");
+                    gotoxy(11, 17,rew);
+                    Sleep(3000);
+                    return a+3;
+                }
+                go = false;
+            }
+            system("cls");
+
+
+
+        }
+        return ret;
+    }
+
+    int fight(Stat &s, string why,Bag &ba,int &gold,int cbl){
+
+        int diff = 1;
+        int skill = 3;
+        int ret = 6;
+
+        if (why == "Gold"){
+
+            setRegion(sc.goldArena);
+
+            bool go = true;
+            int a = 0;
+            while(go){
+
+                display(-1,-1, false,gold,cbl);
+                gotoxy(5, 10+(a*2), '*');
+                gotoxy(21, 10+(a*2), '*');
+                char b = getch();
+
+                if (b == 'x') go = false;
+                else if (b == 'w' && a != 0) a--;
+                else if (b == 's' && a != 2) a++;
+                else if (b == 'z'){
+                    if (gold >= 15){
+                        diff = a+1;
+                        gold -= 15;
+                        FightSimulator f(s,skill,diff,ba,false);
+                        int rew = f.battle();
+                        gold += rew;
+                        go = false;
+                    }
+                }
+                system("cls");
+
+            }
+
+        }
+        else {
+
+            setRegion(sc.xpArena);
+
+            bool go = true;
+            int a = 0;
+            while(go){
+
+                display(-1,-1, false,gold,cbl);
+                stringstream att, def, hp;
+                att << "Level: " << s.stats[0][0] << "  XP: " << s.stats[0][1];
+                def << "Level: " << s.stats[1][0] << "  XP: " << s.stats[1][1];
+                hp << "Level: " << s.stats[2][0] << "  XP: " << s.stats[2][1];
+                string attS = att.str(), defS = def.str(), hpS = hp.str();
+                gotoxy(6, 11, attS);
+                gotoxy(6, 13, defS);
+                gotoxy(6, 15, hpS);
+                gotoxy(5, 10+(a*2), '*');
+                gotoxy(21, 10+(a*2), '*');
+                char b = getch();
+
+                if (b == 'x') go = false;
+                else if (b == 'w' && a != 0) a--;
+                else if (b == 's' && a != 2) a++;
+                else if (b == 'z'){
+                    skill = a;
+                    go = false;
+                }
+                system("cls");
+            }
+
+            setRegion(sc.goldArena);
+
+            go = true;
+            a = 0;
+            while(go){
+
+                display(-1,-1, false,gold,cbl);
+                gotoxy(9, 8, " XP Arena ");
+                gotoxy(7, 11, " XP Award x1  ");
+                gotoxy(7, 13, " XP Award x2  ");
+                gotoxy(7, 15, " XP Award x3  ");
+                gotoxy(5, 10+(a*2), '*');
+                gotoxy(21, 10+(a*2), '*');
+                char b = getch();
+
+                if (b == 'x') go = false;
+                else if (b == 'w' && a != 0) a--;
+                else if (b == 's' && a != 2) a++;
+                else if (b == 'z'){
+                    if (gold >= 15){
+                        diff = a+1;
+                        gold -= 15;
+                        FightSimulator f(s,skill,diff,ba,false);
+                        int rew = f.battle();
+                        s.stats[skill][1] += rew;
+                        ret = skill;
+                        go = false;
+                    }
+                }
+                system("cls");
+            }
+
+        }
+        return ret;
+    }
+
+    char region[20][30];
+
+    void setRegion(char scene[20][30]){
+        for(int x =0;x < 20; x++) for (int y=0; y< 30; y++) region[x][y] = scene[x][y];
+    }
+
+private:
+
+    vector<WEP> weps;
+    vector<ARM> arms;
+
+};
+
+class PLAYER{
+
+public:
+
+    Stat t;
+    Bag ba;
+    int cbl, gold;
+
+    PLAYER(){
+        user = (char)2;
+        x=6;
+        y=13;
+        cbl = 1;
+        gold = 300;
+    }
+
+    char getMove(){
+        char mov;
+        mov = getch();
+        return mov;
+    }
+
+    bool checkMove(char m, CITY c){
+
+        if (m == 'q' or m == 'e') return 1;
+
+        else {
+
+            if (m == 'w'){
+                if (c.region[x-1][y] == ' ') return 1;
+                else return 0;
+            }
+            else if (m == 'a'){
+                if (c.region[x][y-1] == ' ') return 1;
+                else return 0;
+            }
+            else if (m == 's'){
+                if (c.region[x+1][y] == ' ') return 1;
+                else return 0;
+            }
+            else if (m == 'd'){
+                if (c.region[x][y+1] == ' ') return 1;
+                else return 0;
+            }
+
+            else return 0;
+
+        }
+
+    }
+
+    int checkCbl(){
+        return (int)((t.stats[0][0]+t.stats[1][0]+t.stats[2][0])/3);
+    }
+
+    bool moveChar(Scenes sc, bool bc, int &XP, int &YP, CITY &c, FOREST &f){
+
+        cbl = checkCbl();
+
+        if (!bc){
+            int XPP = XP, YPP = YP;
+            c.zones(x,y,t,XP,YP,ba,gold,cbl);
+
+            if (XPP != XP || YPP != YP) return true;
+
+            c.display(x,y, true,gold,cbl);
+
+            char m = getMove();
+
+            if (checkMove(m,c)){
+
+                system("cls");
+
+                if (m == 'w') x -= 1;
+                else if (m == 'a') y -= 1;
+                else if (m == 's') x += 1;
+                else if (m == 'd') y += 1;
+                else {
+                    if (m == 'q') t.displayStats(gold,cbl);
+                    else if(m == 'e') ITEM ret = ba.menu(cbl,gold);
+                    else if (m == 'x') return false;
+                }
+            }
+
+            else system("cls");
+
+            return true;
+        }
+        else if (bc){
+
+            int XPP = XP, YPP = YP;
+            f.zones(x,y,XP,YP);
+
+            if (XPP != XP || YPP != YP) return true;
+
+            if (f.checkEnemies(x,y,t,ba,gold,cbl)){
+                f.display(x,y,true,gold,cbl);
+                char m = getMove();
+
+                if (m == 'w') x -= 1;
+                else if (m == 'a') y -= 1;
+                else if (m == 's') x += 1;
+                else if (m == 'd') y += 1;
+                else {
+                    if (m == 'q') t.displayStats(gold,cbl);
+                    else if (m == 'e') ITEM ret = ba.menu(cbl,gold);
+                    else if (m == 'x') return false;
+                }
+            }
+
+            else system("cls");
+
+            return true;
+
+        }
+
+    }
+
+private:
+
+    char user;
+    int x,y;
+
+};
+
+class GAME{
+public:
+
+    char world[10][10];
+
+    PLAYER p;
+
+    void setUp(){
+        srand(time(NULL));
+
+        for(int x = 0; x < 10; x++) for (int y = 0; y < 10; y++) world[x][y] = ' ';
+
+        CITY gal("Gallium",1,1,0);
+        cities.push_back(gal);
+
+        world[1][1] = 'T';
+
+        for (int x =0; x< 4; x++){
+            int px = rand()%10 + 1;
+            int py = rand()%10 + 1;
+            while (world[px-1][py-1] == 'T'){
+                px = rand()%10 + 1;
+                py = rand()%10 + 1;
+            }
+            world[px-1][py-1] = 'T';
+
+            string ret = "Town ";
+            ret += rand() % 11;
+            CITY c(ret, px-1,py-1,x+1);
+
+            cities.push_back(c);
+
+        }
+
+        for (int xx = 0; xx < 10; xx++){
+            for (int yy =0; yy < 10; yy++){
+                if (world[xx][yy] != 'T'){
+                    FOREST f(xx,yy);
+                    fs.push_back(f);
+                    world[xx][yy] = 'f';
+                }
+            }
+        }
+
+    }
+
+    void play(vector<CITY> citis, vector<FOREST> fss){
+
+        bool a = true;
+        int Xp = 1, Yp = 1;
+        for (int xxx = 0; xxx < 10; xxx++){
+            for (int yyy = 0; yyy < 10; yyy++){
+                cout << world[xxx][yyy];
+            }
+            cout << endl;
+        }
+        Sleep(2000);
+        while (a){
+            bool c = false;
+            int what = 0;
+            if (world[Xp][Yp] == 'T'){
+                for (int ret = 0; ret < 5; ret++){
+                    if (cities[ret].posX == Xp && cities[ret].posY == Yp) what = ret;
+                }
+            }
+            else {
+                c = true;
+                for (int ret = 0; ret < fs.size(); ret++){
+                    if (fs[ret].xPOS == Xp && fs[ret].yPOS == Yp){
+                        what = ret;
+                    }
+                }
+            }
+            Scenes sc;
+            a = p.moveChar(sc, c ,Xp, Yp, cities[what], fs[what]);
+        }
+
+    }
+
+private:
+
+    vector<FOREST> fs;
+    vector<CITY> cities;
+
+};
+
+int main(){
+
+	SetConsoleTitle("Gallium Fighter: William Dreese Copyright 2014");
+
+    skillsXP[0] = "Att XP";
+    skillsXP[1] = "Def XP";
+    skillsXP[2] = "HP XP";
+
+    skillN.push_back("Attack");
+    skillN.push_back("Defense");
+    skillN.push_back("Hitpoints");
+    skillN.push_back("Crafting");
+    skillN.push_back("Zoology");
+    skillN.push_back("Exploring");
+
+    vector<FOREST> fs;
+    vector<CITY> cs;
+
+    GAME g;
+    g.setUp();
+    g.play(cs,fs);
+
+	return 0;
+}

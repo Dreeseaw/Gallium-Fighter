@@ -1,2 +1,2 @@
 # Gallium-Fighter
-game
+Copyright 2016
